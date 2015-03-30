@@ -67,6 +67,11 @@ public class DemoOBJ : MonoBehaviour
         }
     }
 
+    void Update()
+    {
+        
+    }
+
     void Start()
     {
         DebugLog("+Start()");
@@ -110,6 +115,7 @@ public class DemoOBJ : MonoBehaviour
             CameraRig.transform.rotation = Quaternion.Euler(0, 180, 0);
 
             DebugLog("Done moving camera");
+
         }
         int colorSelector = 0;
         for (int x = 0; x < xMax; x++)

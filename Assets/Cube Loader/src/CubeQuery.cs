@@ -4,6 +4,10 @@ using System.Collections.Generic;
 using SimpleJSON;
 using System;
 using Assets.Cube_Loader.Extensions;
+using CubeServer;
+using CubeServerTest;
+using Microsoft.Xna.Framework;
+using Vector3 = UnityEngine.Vector3;
 
 public class CubeQuery
 {
@@ -22,10 +26,13 @@ public class CubeQuery
 
     private readonly MonoBehaviour behavior;
 
+    private readonly OctTree<CubeBounds> octTree;
+
     public CubeQuery(string sceneIndexUrl, MonoBehaviour behaviour)
     {
         indexUrl = sceneIndexUrl;
         this.behavior = behaviour;
+        octTree = new OctTree<CubeBounds>();
     }
 
     public IEnumerator Load()
@@ -45,18 +52,24 @@ public class CubeQuery
         TextureSubdivide = index["TextureSubdivide"].AsInt;
         TexturePath = index["TexturePath"].Value;
 
+        int prevX = 0;
+        int prevZ = 0;
 
         // Populate Viewports
         VLevels = new Dictionary<int, VLevelQuery>();
         for (int i = MinimumViewport; i <= MaximumViewport; i++)
         {
             string path = MetadataTemplate.Replace("{v}", i.ToString());
-            var vlevel = new VLevelQuery(i, path);
+            var vlevel = new VLevelQuery(i, path, prevX, prevZ, octTree);
             
             yield return behavior.StartCoroutine(vlevel.Load());
             VLevels.Add(i, vlevel);
-
+            prevX = vlevel.CubeMap.GetLength(0);
+            prevZ = vlevel.CubeMap.GetLength(2);
         }
+
+        octTree.UpdateTree();
+        Debug.Log(octTree);
     }
 
 }
@@ -75,10 +88,18 @@ public class VLevelQuery
     public Vector3 MaxExtent { get; private set; }
     public Vector3 Size { get; private set; }
 
-    public VLevelQuery(int viewportLevel, string viewportMetadataUrl)
+    private int prevX, prevZ;
+    private readonly OctTree<CubeBounds> octTree;
+    private readonly OctTree<CubeBounds> globalOctTree; 
+
+    public VLevelQuery(int viewportLevel, string viewportMetadataUrl, int prevX, int prevZ, OctTree<CubeBounds> globalOctTree )
     {
         ViewportLevel = viewportLevel;
         metadataUrl = viewportMetadataUrl;
+        this.prevX = prevX;
+        this.prevZ = prevZ;
+        this.octTree = new OctTree<CubeBounds>();
+        this.globalOctTree = globalOctTree;
     }
 
     public IEnumerator Load()
@@ -94,7 +115,19 @@ public class VLevelQuery
             int yMax = metadata["GridSize"]["Y"].AsInt;
             int zMax = metadata["GridSize"]["Z"].AsInt;
 
+            int xyMult = 1;
+            int zMult = 1;
+
             CubeMap = new bool[xMax, yMax, zMax];
+
+            if (prevX != 0)
+            {
+                xyMult = prevX/xMax;
+            }
+            if (prevZ != 0)
+            {
+                zMult = prevZ/zMax;
+            }
 
             var cubeExists = metadata["CubeExists"];
             for (int x = 0; x < xMax; x++)
@@ -103,7 +136,21 @@ public class VLevelQuery
                 {
                     for (int z = 0; z < zMax; z++)
                     {
-                        CubeMap[x, y, z] = cubeExists[x][y][z].AsBool;
+                        if ((CubeMap[x, y, z] = cubeExists[x][y][z].AsBool))
+                        {
+                            octTree.Add(new CubeBounds()
+                            {
+                                BoundingBox =
+                                    new BoundingBox(new Microsoft.Xna.Framework.Vector3(x, y, z),
+                                        new Microsoft.Xna.Framework.Vector3(x + xyMult, y + xyMult, z + zMult))
+                            });
+                            globalOctTree.Add(new CubeBounds()
+                            {
+                                BoundingBox =
+                                    new BoundingBox(new Microsoft.Xna.Framework.Vector3(x, y, z),
+                                        new Microsoft.Xna.Framework.Vector3(x + xyMult, y + xyMult, z + zMult))
+                            });
+                        }
                     }
                 }
             }
@@ -118,7 +165,15 @@ public class VLevelQuery
             float xBlockSize = Size.x / CubeMap.GetLength(0);
             float yBlockSize = Size.y / CubeMap.GetLength(1);
             float zBlockSize = Size.z / CubeMap.GetLength(2);
+
+
             Debug.LogFormat("CubeSize: {0} {1} {2}", xBlockSize, yBlockSize, zBlockSize);
+            Debug.LogFormat("Build OctTree {0} {1}", xyMult, zMult);
+            octTree.UpdateTree();
+            Debug.LogFormat("Dump OctTree {0} {1}", xyMult, zMult);
+            // OctTreeUtilities.Dump(octTree);
+            Debug.LogFormat("Done Dump OctTree {0} {1}", xyMult, zMult);
+
         }
     }
 }

@@ -37,6 +37,10 @@ public class IsRendered : MonoBehaviour
         {
             if (this.cubes == null)
             {
+                //var matrix = Camera.main.projectionMatrix;
+                //matrix = Camera.main.cameraToWorldMatrix;
+                //matrix = Camera.main.worldToCameraMatrix;
+                //Debug.Log(matrix);
                 meshRenderer.enabled = false;
                 StartCoroutine(OnRenderRoutine());
             }

@@ -320,7 +320,7 @@ MonoBehaviour:
   UseUnlitShader: 0
   UseDividedTexture: 1
   UseEbo: 1
-  EnableDebugLogs: 0
+  EnableDebugLogs: 1
   ParallelCubeLoad: 1
   UseCameraDetection: 1
   PlaceHolderCube: {fileID: 100618, guid: 547fcef88f7c7df44878fafaaa15d4a3, type: 2}
